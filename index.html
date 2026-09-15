@@ -344,8 +344,8 @@ details.gap[open] summary::before{transform:rotate(90deg)}
 
 <script>
 /* ══════════════════════════════════════════════════════════
-   Mọi thông tin nghiệp vụ (câu lệnh đọc toa, ngưỡng cảnh báo, biệt danh…)
-   lấy từ tab DoiChieu của sheet bayich2 qua Apps Script.
+   Cấu hình (câu lệnh đọc toa, ngưỡng cảnh báo, màu, link…) lấy từ tab CauHinh, biệt danh từ tab DoiChieu
+   của sheet bayich2, qua Apps Script.
    Trong code chỉ còn link Apps Script và tên tiệm.
    ══════════════════════════════════════════════════════════ */
 const API = 'https://script.google.com/macros/s/AKfycbyijaex0js9jjT42MDT1Z1JmQ8zdHFjwFiMY6UOjM_F0aSL3KQv46ZzF-n-KpIGUlxa/exec';
@@ -648,7 +648,7 @@ $('#nut-xoa-toa').addEventListener('click', e => {
 let DAN = null;
 function moSheet() {
   const lenh = DL?.cauHinh?.lenhDocToa;
-  $('#nut-chep').hidden = !lenh; $('#lenh').textContent = lenh || 'Chưa có "Câu lệnh đọc toa" trong tab DoiChieu.';
+  $('#nut-chep').hidden = !lenh; $('#lenh').textContent = lenh || 'Chưa có "Câu lệnh đọc toa" trong tab CauHinh.';
   $('#o-dan').value = ''; $('#ket-dan').innerHTML = ''; DAN = null;
   $('#che').hidden = false; $('#sheet').hidden = false;
   requestAnimationFrame(() => { $('#che').classList.add('mo'); $('#sheet').classList.add('mo'); });
