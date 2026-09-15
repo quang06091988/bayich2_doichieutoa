@@ -39,4 +39,5 @@ appsscript/       backend — Apps Script STANDALONE "bayich2_doichieutoa" (khô
   bản cũ để cấu hình trong tab `DoiChieu` thì chép sang `CauHinh` rồi xoá khối cũ.
 
 Backend là web app quyền "Bất kỳ ai": chỉ ghi được cột Giá Nhập Sỉ, giá phải là số nguyên 1–100.000.000,
-và chỉ khi giá trong Sheet vẫn đúng như lúc đối chiếu.
+và chỉ khi giá trong Sheet vẫn đúng như lúc đối chiếu. Mọi lệnh ghi (kể cả nút "Đồng bộ N món") cần **Mã PIN chung**
+trong tab CauHinh — nhập một lần trên mỗi máy; đọc không cần PIN.

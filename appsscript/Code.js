@@ -3,7 +3,7 @@
  * (bayich2-doichieutoa.vercel.app). Thay cho script gắn với sheet bayich2 (bản bayich2_doichieugia).
  *
  *  ĐỌC : doGet?viec=khoiTao → tab Retail + cấu hình + biệt danh (tab DoiChieu)
- *  GHI : doPost {hanhDong:'capNhat', retail:[{ten, giaNhapSi, giaNhapSiCu}]}
+ *  GHI : doPost {hanhDong:'capNhat', pin, retail:[{ten, giaNhapSi, giaNhapSiCu}]} — cần Mã PIN chung (tab CauHinh)
  *          → chỉ ghi cột "Giá Nhập Sỉ", rồi tô màu dòng:
  *            ĐỎ   = Giá Làm Tròn đổi sau khi Sheet tính lại
  *            XANH = Giá Làm Tròn giữ nguyên
@@ -170,17 +170,20 @@ function docGiaTri(v, kieu) {
 }
 
 /* ══════════════════ GHI ══════════════════ */
+/* Mọi lệnh GHI cần Mã PIN chung (tab CauHinh). Kiểm PIN TRƯỚC khi giữ khoá ghi — sai PIN (chờ 2 giây) không chặn người khác.
+   {hanhDong:'kiemPin', pin} để trang kiểm PIN ngay lúc nhập. Đọc (doGet) không cần PIN. */
 function doPost(e) {
-  var khoa = LockService.getScriptLock();
-  if (!khoa.tryLock(15000)) return traLoi({ ok: false, loi: 'Đang có một lần ghi khác, thử lại sau ít giây' });
   try {
     var d = JSON.parse(e.postData.contents);
-    if (d.hanhDong === 'capNhat') return traLoi(capNhat(d));
-    return traLoi({ ok: false, loi: 'Hành động không hợp lệ' });
+    var p = kiemPin(SpreadsheetApp.openById(ID_BAYICH2), d.pin);
+    if (!p.ok) return traLoi(p);
+    if (d.hanhDong === 'kiemPin') return traLoi({ ok: true });
+    if (d.hanhDong !== 'capNhat') return traLoi({ ok: false, loi: 'Hành động không hợp lệ' });
+    var khoa = LockService.getScriptLock();
+    if (!khoa.tryLock(15000)) return traLoi({ ok: false, loi: 'Đang có một lần ghi khác, thử lại sau ít giây' });
+    try { return traLoi(capNhat(d)); } finally { khoa.releaseLock(); }
   } catch (err) {
     return traLoi({ ok: false, loi: String(err) });
-  } finally {
-    khoa.releaseLock();
   }
 }
 
@@ -459,6 +462,19 @@ function xoaKhoiCu(sh, k) {
     if (c >= 0) sh.getRange(1, c + 1, k.cuoi, 1).clearContent().setBackground(null).setFontWeight('normal');
   });
   sh.getRange(1, k.cTr + 1).setValue('Cấu hình → tab ' + TAB_CAU_HINH).setFontWeight('bold');
+}
+
+/* Mã PIN chung (tab CauHinh) — bắt buộc cho lệnh GHI. Sai / thiếu thì chờ 2 giây như sổ bán hàng (chống dò PIN). */
+var TRUONG_PIN = 'Mã PIN chung';
+function kiemPin(ss, pin) {
+  var dung = layTheoTen(docCauHinhChung(ss), [TRUONG_PIN]);
+  if (dung === undefined || String(dung).trim() === '')
+    return { ok: false, maLoi: 'THIEU_PIN', loi: 'Chưa có "' + TRUONG_PIN + '" trong tab ' + TAB_CAU_HINH + ' — chưa ghi được' };
+  if (String(pin == null ? '' : pin).trim() !== String(dung).trim()) {
+    Utilities.sleep(2000);
+    return { ok: false, maLoi: 'PIN', loi: 'Sai mã PIN — xem ô "' + TRUONG_PIN + '" ở tab ' + TAB_CAU_HINH };
+  }
+  return { ok: true };
 }
 
 /* ══════════════════ phụ trợ ══════════════════ */
