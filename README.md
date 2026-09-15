@@ -10,7 +10,7 @@ Thay cho `bayich2_doichieugia` (bản cũ dùng script gắn với Sheet).
 
 | Khối | Tiêu đề | Nội dung |
 |---|---|---|
-| Cấu hình | Trường \| Giá trị \| Ghi chú | câu lệnh đọc toa, cảnh báo giá nhảy (%), bước làm tròn, 2 màu, xoá màu cũ, link Đồng Bộ Giá |
+| Cấu hình | Trường \| Giá trị \| Ghi chú | câu lệnh đọc toa, cảnh báo giá nhảy (%), bước làm tròn, 2 màu, xoá màu cũ, link Đồng Bộ Giá, link Tính Giá |
 | Biệt danh | Cách viết trên toa \| Mặt Hàng (Retail) | "ly 720 vp" → Ly Trơn 720ml… — thêm/sửa thẳng trong Sheet |
 
 Các khối và cột được tìm theo chữ tiêu đề, không theo vị trí.

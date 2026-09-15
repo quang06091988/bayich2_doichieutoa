@@ -12,7 +12,8 @@
  * Mọi thông tin nghiệp vụ (câu lệnh đọc toa, ngưỡng cảnh báo, màu, biệt danh…) nằm trong tab DoiChieu —
  * biệt danh sửa thẳng trong Sheet. Cột trong cả 2 tab được tìm theo CHỮ TIÊU ĐỀ, không theo vị trí.
  *
- * CÀI / CẤP QUYỀN: chọn hàm caiDat → Run (chưa có tab DoiChieu thì tạo; có rồi thì chỉ đọc thử).
+ * CÀI / CẤP QUYỀN / NÂNG CẤP: chọn hàm caiDat → Run (chưa có tab DoiChieu thì tạo; có rồi thì chỉ thêm
+ * trường cấu hình mới còn thiếu, rồi đọc thử).
  * CẬP NHẬT CODE: clasp push → clasp deploy -i <deploymentId> (link /exec giữ nguyên).
  */
 
@@ -38,7 +39,8 @@ var TRUONG = [
   { khoa: 'mauDo',       ten: 'Màu đổi giá bán',       kieu: 'mau' },
   { khoa: 'mauXanh',     ten: 'Màu chỉ đổi giá nhập',  kieu: 'mau' },
   { khoa: 'xoaMauCu',    ten: 'Xoá màu cũ khi ghi',    kieu: 'coKhong' },
-  { khoa: 'linkDongBo',  ten: 'Link Đồng Bộ Giá',      kieu: 'link' }
+  { khoa: 'linkDongBo',  ten: 'Link Đồng Bộ Giá',      kieu: 'link' },
+  { khoa: 'linkTinhGia', ten: 'Link Tính Giá',         kieu: 'link' }
 ];
 
 /* Giới hạn kỹ thuật */
@@ -134,7 +136,7 @@ function docDoiChieu(ss, canhBao) {
     }
     TRUONG.forEach(function (t) {
       var v = theoTen[chuanHoa(t.ten)];
-      if (v === undefined) { canhBao.push('Tab ' + TAB_DOICHIEU + ' thiếu trường "' + t.ten + '"'); return; }
+      if (v === undefined) { canhBao.push('Tab ' + TAB_DOICHIEU + ' thiếu trường "' + t.ten + '" — mở Apps Script, chạy hàm caiDat một lần để thêm'); return; }
       cauHinh[t.khoa] = docGiaTri(v, t.kieu);
       if (cauHinh[t.khoa] == null && String(v).trim() !== '')
         canhBao.push('Trường "' + t.ten + '" có giá trị không hợp lệ: ' + v);
@@ -256,7 +258,8 @@ var CAU_HINH_BAN_DAU = [
   ['Màu đổi giá bán', '#f4cccc', 'Tô dòng Retail khi Giá Làm Tròn đổi. Để trống = không tô'],
   ['Màu chỉ đổi giá nhập', '#d9ead3', 'Tô dòng Retail khi Giá Làm Tròn giữ nguyên. Để trống = không tô'],
   ['Xoá màu cũ khi ghi', 'Có', 'Có / Không — để màu chỉ phản ánh lần nhập gần nhất'],
-  ['Link Đồng Bộ Giá', 'https://bayich2-dongbogia.vercel.app/', 'Nút hiện sau khi ghi xong. Để trống = ẩn nút']
+  ['Link Đồng Bộ Giá', 'https://bayich2-dongbogia.vercel.app/', 'Nút hiện sau khi ghi xong. Để trống = ẩn nút'],
+  ['Link Tính Giá', 'https://bayich2-tinhgia.vercel.app/', 'Link "Tính giá bán" ở mục Hàng mới. Để trống = ẩn link']
 ];
 var BIET_DANH_BAN_DAU = [
   ['Ly Trơn 360ml', ['ly 360', 'ly 360 noni', '360 noni', 'ly 360 doni', '360 doni']],
@@ -280,7 +283,8 @@ function caiDat() {
   var ss = SpreadsheetApp.openById(ID_BAYICH2);
   var sh = ss.getSheetByName(TAB_DOICHIEU);
   if (sh) {
-    Logger.log('Tab ' + TAB_DOICHIEU + ' đã có — giữ nguyên');
+    Logger.log('Tab ' + TAB_DOICHIEU + ' đã có — giữ nguyên dữ liệu, chỉ thêm trường cấu hình còn thiếu');
+    themTruongThieu(sh);
   } else {
     sh = ss.insertSheet(TAB_DOICHIEU, ss.getNumSheets());
     var bd = [];
@@ -304,6 +308,28 @@ function caiDat() {
   var kq = khoiTao();
   Logger.log(kq.ok ? ('Đọc thử: ' + kq.retail.length + ' mặt hàng Retail, ' + kq.bietDanh.length + ' biệt danh') : ('Lỗi: ' + kq.loi));
   (kq.canhBao || []).forEach(function (c) { Logger.log('  ! ' + c); });
+}
+
+/* Tab đã có (tạo bởi bản cũ): thêm các trường cấu hình mới còn thiếu vào ngay dưới khối cấu hình.
+   Chỉ ghi vào các cột Trường | Giá trị | Ghi chú — không đụng dòng cũ, không đụng khối biệt danh. */
+function themTruongThieu(sh) {
+  var k = khoiDoiChieu(sh);
+  if (k.cotTruong < 0 || k.cotGiaTri < 0) { Logger.log('Không thấy khối cấu hình — bỏ qua'); return; }
+  var co = {}, dongCuoi = 1;
+  for (var i = 1; i < k.hang.length; i++) {
+    var tr = String(k.hang[i][k.cotTruong] || '').trim();
+    if (tr) { co[chuanHoa(tr)] = true; dongCuoi = i + 1; }
+  }
+  var them = CAU_HINH_BAN_DAU.filter(function (c) { return !co[chuanHoa(c[0])]; });
+  if (!them.length) { Logger.log('Khối cấu hình đủ trường'); return; }
+  var cotGhiChu = timCot(k.hang[0], TD_GHI_CHU);
+  them.forEach(function (c, j) {
+    var dong = dongCuoi + 1 + j;
+    sh.getRange(dong, k.cotTruong + 1).setValue(c[0]);
+    sh.getRange(dong, k.cotGiaTri + 1).setValue(c[1]);
+    if (cotGhiChu >= 0) sh.getRange(dong, cotGhiChu + 1).setValue(c[2]);
+  });
+  Logger.log('Đã thêm ' + them.length + ' trường: ' + them.map(function (c) { return c[0]; }).join(', '));
 }
 
 /* ══════════════════ phụ trợ ══════════════════ */
