@@ -1,8 +1,12 @@
 # bayich2_doichieutoa — Đối Chiếu Toa
 
 Nhập hoặc chụp toa nhập hàng → so với tab **Retail** (sheet bayich2) → ghi **Giá Nhập Sỉ** mới và tô màu dòng:
-đỏ = Giá Làm Tròn đổi (đổi giá bán), xanh = chỉ đổi giá nhập. Xong thì sang
-[Đồng Bộ Giá](https://bayich2-dongbogia.vercel.app/) để đẩy giá sang Menu và Vân Bao Bì.
+đỏ = Giá Làm Tròn đổi (đổi giá bán), xanh = chỉ đổi giá nhập. Ghi xong, màn kết quả tự tính phần
+**đồng bộ sang Menu và Vân Bao Bì** (gọi thẳng backend của [Đồng Bộ Giá](https://bayich2-dongbogia.vercel.app/),
+cùng luật tích sẵn và cách xác minh khi Google lỗi) — bấm "Đồng bộ N món" là xong cả luồng.
+
+Bước làm tròn chỉ khai một chỗ: dòng "Bước làm tròn" trong tab `CauHinh`. Cột Giá Làm Tròn của Retail đọc dòng đó
+(`caiDat` tự đổi công thức, so từng dòng trước/sau; lệch thì trả lại công thức cũ).
 
 Thay cho `bayich2_doichieugia` (bản cũ dùng script gắn với Sheet).
 

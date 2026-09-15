@@ -189,6 +189,24 @@ details.gap[open] summary::before{transform:rotate(90deg)}
 .ds-kq .phai i{font-style:normal;color:var(--mo)}
 .hang-nut{display:flex;flex-direction:column;gap:10px;padding:16px}
 .hang-nut a.nut{text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}
+/* đồng bộ luôn sang Menu & Vân Bao Bì (màn 3) */
+.dong-bo{border-top:1px solid var(--vien);margin-top:16px;padding:16px 0 4px}
+.dong-bo > :not(.ds-kq){margin-left:16px;margin-right:16px}
+.db-td{font-family:'Fraunces',Georgia,serif;font-size:17px;margin:0 0 6px}
+.db-cho{margin:0 0 10px;font-size:13.5px;color:var(--mo)}
+.dong-bo a{color:var(--xanh);font-weight:600;white-space:nowrap}
+.db-nhom{font-size:12.5px;font-weight:700;color:var(--mo);margin:12px 0 6px}
+.mon-db{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:4px 10px;align-items:start;padding:10px 12px;margin-bottom:8px;
+  background:var(--giay);border:1px solid var(--vien);border-radius:14px;transition:opacity .15s}
+.mon-db.do{background:var(--do-nen);border-color:#ecc3be}
+.mon-db.xanh{background:var(--luc-nen);border-color:#bddcc6}
+.mon-db.can-xem{border:2px solid var(--vang-vien);background:var(--vang-nen)}
+.mon-db.bo{opacity:.62}
+.mon-db .tich{grid-area:auto}
+.ten-db{min-width:0;font-size:14px;line-height:1.35;padding-top:4px}
+.ten-db .gia-db{display:block;font-size:12.5px;margin-top:2px;font-variant-numeric:tabular-nums}
+.ten-db .canh-nho{display:block;margin-top:3px}
+.mon-db .chip{margin-top:4px}
 
 /* ── chuyển màn ── */
 .man.vao-phai{animation:tuPhai .24s ease}
@@ -346,9 +364,13 @@ details.gap[open] summary::before{transform:rotate(90deg)}
 /* ══════════════════════════════════════════════════════════
    Cấu hình (câu lệnh đọc toa, ngưỡng cảnh báo, màu, link…) lấy từ tab CauHinh, biệt danh từ tab DoiChieu
    của sheet bayich2, qua Apps Script.
-   Trong code chỉ còn link Apps Script và tên tiệm.
+   Trong code chỉ còn link 2 Apps Script (trang này + Đồng bộ giá) và tên tiệm.
    ══════════════════════════════════════════════════════════ */
 const API = 'https://script.google.com/macros/s/AKfycbyijaex0js9jjT42MDT1Z1JmQ8zdHFjwFiMY6UOjM_F0aSL3KQv46ZzF-n-KpIGUlxa/exec';
+/* Backend của trang Đồng bộ giá — ghi toa xong thì đồng bộ luôn sang Menu & Vân Bao Bì ngay ở màn 3.
+   Máy chủ bên đó tự tính giá từ Retail; trang này chỉ gửi "ghi những ô nào" kèm giá cũ/mới đã thấy. */
+const API_DONGBO = 'https://script.google.com/macros/s/AKfycbz767Ti7iftH6thPYqdMfr7YqDnT4ntOwZT5vMj9Ox7T6v4FCJwrrWsx8FLtp0JQfVy/exec';
+const TEN_DICH = { Menu: 'Bảy Ích 2 · Menu', SanPham: 'Vân Bao Bì · SanPham' };
 const TEN_TIEM = 'Bảy Ích 2';
 
 const KHOA_TOA = 'bi2_toa';
@@ -428,22 +450,25 @@ async function docCoHan(url) {
   catch (e) { throw ctl.signal.aborted ? new LoiDuongTruyen(`Google không trả lời sau ${THU.choMs / 1000} giây.`) : e; }
   finally { clearTimeout(hg); }
 }
-async function layDuLieu(baoTienDo) {
+/* Đọc có thử lại — dùng cho cả 2 backend. hopLe(j): JSON đúng dạng mong đợi (sai dạng = phản hồi lạc, thử lại). */
+async function docThuLai(url, hopLe, baoTienDo) {
   let loi;
   for (let lan = 1; lan <= THU.lan; lan++) {
     if (lan > 1) { baoTienDo && baoTienDo(lan); await ngu((lan - 1) * THU.nghiMs); }
     try {
-      const j = await docCoHan(API + '?viec=khoiTao&t=' + Date.now());
+      const j = await docCoHan(url + '&t=' + Date.now());
       if (j && j.ok === false) return j;                          // lỗi thật từ máy chủ — không thử lại
-      if (j && Array.isArray(j.retail) && j.cauHinh) return j;
+      if (j && hopLe(j)) return j;
       loi = new LoiDuongTruyen('Google trả về dữ liệu không đúng dạng.');
     } catch (e) { loi = e instanceof LoiDuongTruyen ? e : new LoiDuongTruyen('Mất kết nối tới Apps Script. Kiểm tra mạng rồi thử lại.'); }
   }
   throw loi;
 }
-async function goi(payload) {
+const layDuLieu = baoTienDo => docThuLai(API + '?viec=khoiTao', j => Array.isArray(j.retail) && j.cauHinh, baoTienDo);
+const layDongBo = baoTienDo => docThuLai(API_DONGBO + '?viec=xemTruoc', j => Array.isArray(j.mon), baoTienDo);
+async function goi(payload, api = API) {
   let r;
-  try { r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); }
+  try { r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) }); }
   catch { throw new LoiDuongTruyen('Mất kết nối tới Apps Script.'); }
   return docJSON(r);
 }
@@ -818,6 +843,7 @@ async function ghi() {
   }
   veToa();
   history.replaceState({ man: 3 }, ''); sangMan(3, false);
+  napDongBo();   // Retail đã ghi + flush xong → tính luôn phần đồng bộ trong lúc người dùng đọc kết quả
 }
 
 /* Lệnh ghi đã gửi nhưng không nhận được trả lời hợp lệ: đọc lại Sheet xem đã ghi thật chưa.
@@ -841,10 +867,9 @@ async function xacMinhSauLoi(gui, tronTruoc, loiGoc) {
 }
 
 /* ══════════════════ MÀN 3 — xong ══════════════════ */
-/* Liệt kê MỌI dòng đã ghi, chia 2 nhóm. Nút Đồng bộ luôn là nút chính: kể cả khi chỉ đổi giá nhập,
-   Giá Sỉ bên Vân Bao Bì (= Giá Nhập Lẻ) vẫn đổi theo. */
+/* Liệt kê MỌI dòng đã ghi, chia 2 nhóm; bên dưới tự tải phần đồng bộ sang Menu & Vân Bao Bì. Kể cả khi chỉ đổi giá
+   nhập, Giá Sỉ bên Vân Bao Bì (= Giá Nhập Lẻ) vẫn đổi theo. */
 function veKetQua(r) {
-  const link = DL?.cauHinh?.linkDongBo;
   const nhom = (doi, tieuDe, lop) => {
     const ds = (r.ketQua || []).filter(k => !!k.doi === doi);
     if (!ds.length) return '';
@@ -858,12 +883,131 @@ function veKetQua(r) {
       ${r.xacMinh ? '<p style="font-size:12.5px">Google báo lỗi đường truyền nhưng đã kiểm tra lại: dữ liệu đã vào Sheet.</p>' : ''}</div>
     <ul class="ds-kq">${nhom(true, 'Đổi giá bán', 'do')}${nhom(false, 'Chỉ đổi giá nhập', 'xanh')}</ul>
     ${r.boQua?.length ? `<div style="padding:12px 16px 0"><div class="canh"><b>Bỏ qua ${r.boQua.length} dòng</b><ul>${r.boQua.map(x => `<li>${thoat(x.ten)}: ${thoat(x.lyDo)}</li>`).join('')}</ul></div></div>` : ''}
-    <div class="hang-nut">
-      ${link ? `<a class="nut" href="${thoat(link)}">Đồng bộ sang Menu & Vân Bao Bì →</a>` : ''}
-      <button class="nut ${link ? 'phu' : ''}" id="nut-toa-moi">Nhập toa mới</button>
-    </div>`;
+    <div class="dong-bo" id="dong-bo"></div>
+    <div class="hang-nut"><button class="nut phu" id="nut-toa-moi">Nhập toa mới</button></div>`;
 }
-$('#ket-qua').addEventListener('click', e => { if (e.target.closest('#nut-toa-moi')) veMan1(); });
+$('#ket-qua').addEventListener('click', e => {
+  if (e.target.closest('#nut-toa-moi')) veMan1();
+  if (e.target.closest('[data-thu-db]')) napDongBo();
+});
+$('#ket-qua').addEventListener('change', e => {
+  const el = e.target; if (el.dataset.chonDb === undefined) return;
+  el.checked ? CHON_DB.add(el.dataset.chonDb) : CHON_DB.delete(el.dataset.chonDb);
+  el.closest('.mon-db').classList.toggle('bo', !el.checked);
+  rung(8); capNhatThanh();
+});
+
+/* ── Đồng bộ luôn: gọi thẳng Apps Script của trang Đồng bộ giá, cùng luật với trang đó ──
+   Tích sẵn món có đổi, trừ món giá nhảy từ ngưỡng cảnh báo trở lên. Ghi lỗi đường truyền thì KHÔNG gửi lại mà đọc lại
+   để xác minh (Google hay trả 404 sau khi script đã ghi xong). */
+let DB = null, CHON_DB = new Set(), dbTrangThai = '', dbLoi = '', dbLoiGhi = '', kqDB = null, dangDongBo = false, lanDB = 0;
+const coDoiDB = m => m.trangThai === 'do' || m.trangThai === 'xanh';
+const canXemDB = m => coDoiDB(m) && DB?.nguongNhay && m.nhay * 100 >= DB.nguongNhay;
+const khoaDB = m => m.dich + '|' + m.ten;
+const oCuaMonDB = m => Object.entries(m.gia).filter(([, g]) => g.doi).map(([cot, g]) => ({ dich: m.dich, ten: m.ten, cot, cu: g.cu, moi: g.moi }));
+const monDBDaChon = () => (DB?.mon || []).filter(m => coDoiDB(m) && CHON_DB.has(khoaDB(m)));
+
+async function napDongBo() {
+  const lan = ++lanDB;
+  dbTrangThai = 'dang'; dbLoi = ''; dbLoiGhi = ''; kqDB = null; veDongBo();
+  try {
+    const j = await layDongBo();
+    if (lan !== lanDB) return;
+    if (!j.ok) throw new Error(j.loi || 'Apps Script Đồng bộ giá báo lỗi.');
+    DB = j;
+    CHON_DB = new Set(j.mon.filter(m => coDoiDB(m) && !canXemDB(m)).map(khoaDB));
+    dbTrangThai = 'san';
+  } catch (e) {
+    if (lan !== lanDB) return;
+    dbTrangThai = 'loi'; dbLoi = e.message;
+  }
+  veDongBo();
+}
+function htmlMonDB(m) {
+  const k = khoaDB(m), chon = CHON_DB.has(k), xem = canXemDB(m);
+  const gia = Object.entries(m.gia).filter(([, g]) => g.doi).map(([cot, g]) => `${thoat(cot)} <span class="cu">${dinh(g.cu)}</span> → <b>${dinh(g.moi)}</b>`).join(' · ');
+  return `<div class="mon-db ${m.trangThai}${xem ? ' can-xem' : ''}${chon ? '' : ' bo'}">
+    <label class="tich"><input type="checkbox" data-chon-db="${thoat(k)}" ${chon ? 'checked' : ''} aria-label="Đồng bộ ${thoat(m.ten)}"><span></span></label>
+    <div class="ten-db"><b>${thoat(m.ten)}</b><span class="gia-db">${gia}</span>
+      ${xem ? `<span class="canh-nho">⚠ Giá đổi ${Math.round(m.nhay * 100)}% — xem lại Retail rồi mới tích</span>` : ''}</div>
+    <span class="chip ${m.trangThai}">${m.trangThai === 'do' ? 'Đổi giá bán' : 'Chỉ giá sỉ'}</span>
+  </div>`;
+}
+function htmlDaDongBo(r) {
+  let ds = '';
+  for (const dich of Object.keys(TEN_DICH)) {
+    const nhom = (r.daGhi || []).filter(x => x.dich === dich);
+    if (nhom.length) ds += `<li class="tieu-de">${thoat(TEN_DICH[dich])}</li>` + nhom.map(x => `<li><span class="cham ${x.mau}"></span><span>${thoat(x.ten)}</span>
+      <span class="phai">${Object.entries(x.gia).map(([cot, g]) => `${thoat(cot)}: <span class="cu">${dinh(g.cu)}</span> → <b>${dinh(g.moi)}</b>`).join('<br>')}</span></li>`).join('');
+  }
+  return `<h3 class="db-td">✓ Đã đồng bộ ${(r.daGhi || []).length} món sang Menu & Vân Bao Bì</h3>
+    <p class="db-cho">${r.soDo} đổi giá bán · ${r.soXanh} chỉ đổi giá sỉ — đã tô màu trong Sheet. POS và bảng giá thấy giá mới sau khoảng 5 phút (bản CSV của Google cập nhật chậm).</p>
+    ${r.xacMinh ? '<p class="db-cho">Google báo lỗi đường truyền nhưng đã kiểm tra lại: dữ liệu đã vào Sheet.</p>' : ''}
+    <ul class="ds-kq">${ds}</ul>
+    ${r.boQua?.length ? `<div class="canh" style="margin-top:12px"><b>Bỏ qua ${r.boQua.length} ô</b><ul>${r.boQua.map(x => `<li>${thoat(x.ten)} · ${thoat(x.cot)}: ${thoat(x.lyDo)}</li>`).join('')}</ul></div>` : ''}`;
+}
+function veDongBo() {
+  const el = $('#dong-bo'); if (!el) return;
+  const link = DL?.cauHinh?.linkDongBo, moTrang = link ? ` <a href="${thoat(link)}" target="_blank" rel="noopener">Mở trang Đồng bộ giá ›</a>` : '';
+  let h = '<h3 class="db-td">Đồng bộ sang Menu & Vân Bao Bì</h3>';
+  if (dbTrangThai === 'dang') h += '<p class="db-cho">Đang tính giá cần đồng bộ…</p>';
+  else if (dbTrangThai === 'loi') h += `<div class="canh loi"><b>Chưa tính được giá cần đồng bộ</b>${thoat(dbLoi)}<br><button class="nut" data-thu-db>Thử lại</button>${moTrang}</div>`;
+  else if (dbTrangThai === 'xong') h = htmlDaDongBo(kqDB);
+  else if (DB) {
+    const loi = DB.canhBao.filter(c => c.loai === 'loi');
+    if (loi.length) h += `<div class="canh"><b>${loi.length} dòng trong tab DongBo đang lỗi — các món đó chưa đồng bộ được</b>${moTrang}</div>`;
+    h += dbLoiGhi;
+    let ds = '';
+    for (const dich of Object.keys(TEN_DICH)) {
+      const nhom = DB.mon.filter(m => m.dich === dich && coDoiDB(m));
+      if (nhom.length) ds += `<div class="db-nhom">${thoat(TEN_DICH[dich])} · ${nhom.length} món</div>` + nhom.map(htmlMonDB).join('');
+    }
+    h += ds || '<div class="canh ok"><b>Menu và Vân Bao Bì đã khớp với Retail</b>Không cần đồng bộ gì.</div>';
+  }
+  el.innerHTML = h;
+  capNhatThanh();
+}
+async function dongBoLuon() {
+  const ds = monDBDaChon();
+  if (!ds.length || dangDongBo) return;
+  const chon = ds.flatMap(oCuaMonDB);
+  dangDongBo = true; dbLoiGhi = ''; capNhatThanh();
+  try {
+    let r;
+    try {
+      r = await goi({ hanhDong: 'dongBo', chon }, API_DONGBO);
+      /* ok mà không có danh sách đã ghi = phản hồi lạc → xác minh như lỗi đường truyền */
+      if (!r || typeof r !== 'object' || (r.ok && !Array.isArray(r.daGhi))) throw new LoiDuongTruyen('Google trả về phản hồi không đúng dạng.');
+    } catch (e) { if (!(e instanceof LoiDuongTruyen)) throw e; r = await xacMinhDongBo(ds, chon, e); }
+    if (r.xemTruoc?.ok) DB = r.xemTruoc;
+    if (!r.ok) { const e = new Error(r.loi || 'Apps Script báo lỗi.'); e.boQua = r.boQua; throw e; }
+    kqDB = r; dbTrangThai = 'xong'; rung([20, 50, 20]);
+  } catch (e) {
+    if (e.xemTruoc) DB = e.xemTruoc;
+    if (DB) CHON_DB = new Set([...CHON_DB].filter(k => DB.mon.some(m => khoaDB(m) === k && coDoiDB(m))));
+    const bq = (e.boQua || []).map(x => `<li>${thoat(x.ten)}${x.cot ? ' · ' + thoat(x.cot) : ''}: ${thoat(x.lyDo)}</li>`).join('');
+    dbLoiGhi = `<div class="canh loi"><b>Chưa đồng bộ xong</b>${thoat(e.message)}${bq ? `<ul>${bq}</ul>` : ''}<br><button class="nut" data-thu-db>Tính lại</button></div>`;
+  } finally {
+    dangDongBo = false; veDongBo();
+  }
+}
+/* Không nhận được trả lời hợp lệ: đọc lại, ô nào đã mang giá mới là đã ghi. KHÔNG gửi lại lệnh ghi. */
+async function xacMinhDongBo(ds, chon, loiGoc) {
+  $('#nut-chinh').textContent = 'Đang kiểm tra lại…';
+  let j;
+  try { j = await layDongBo(); } catch {}
+  if (!j?.ok || !Array.isArray(j.mon)) throw new Error(loiGoc.message + ' Chưa kiểm tra lại được — bấm "Tính lại" để biết đã đồng bộ chưa, đừng đồng bộ lại ngay.');
+  const hienTai = new Map(j.mon.map(m => [khoaDB(m), m]));
+  const vao = chon.filter(c => hienTai.get(c.dich + '|' + c.ten)?.gia[c.cot]?.cu === c.moi);
+  if (vao.length === chon.length) {
+    const daGhi = ds.map(m => ({ dich: m.dich, ten: m.ten, mau: m.trangThai, gia: Object.fromEntries(oCuaMonDB(m).map(c => [c.cot, { cu: c.cu, moi: c.moi }])) }));
+    return { ok: true, xacMinh: true, daGhi, boQua: [], xemTruoc: j, soDo: daGhi.filter(x => x.mau === 'do').length, soXanh: daGhi.filter(x => x.mau === 'xanh').length };
+  }
+  const e = new Error(`${loiGoc.message} Đã kiểm tra lại: ${vao.length}/${chon.length} ô giá đã được ghi.`);
+  e.xemTruoc = j;
+  e.boQua = chon.filter(c => !vao.includes(c)).map(c => ({ ten: c.ten, cot: c.cot, lyDo: 'Chưa ghi — tích lại và đồng bộ lần nữa' }));
+  throw e;
+}
 
 /* ══════════════════ điều hướng ══════════════════ */
 function sangMan(m, themLichSu = true) {
@@ -894,10 +1038,16 @@ function capNhatThanh() {
     tt.innerHTML = n ? `Ghi <b>${n}</b> dòng vào Retail` : 'Chưa chọn dòng nào';
     nut.textContent = dangGhi ? 'Đang ghi…' : `Ghi ${n || ''} dòng`.replace('  ', ' ');
     nut.disabled = !n || dangGhi;
+  } else if (man === 3 && $('#dong-bo') && dbTrangThai === 'san' && DB?.mon.some(coDoiDB)) {
+    const ds = monDBDaChon(), soO = ds.reduce((s, m) => s + oCuaMonDB(m).length, 0);
+    thanh.hidden = false;
+    tt.innerHTML = ds.length ? `Đồng bộ <b>${ds.length}</b> món · ${soO} ô giá` : 'Chưa chọn món nào';
+    nut.textContent = dangDongBo ? 'Đang đồng bộ…' : `Đồng bộ ${ds.length || ''} món`.replace('  ', ' ');
+    nut.disabled = !ds.length || dangDongBo;
   } else thanh.hidden = true;
   chuaCho();
 }
-$('#nut-chinh').addEventListener('click', () => { if (man === 1) diKiemTra(); else if (man === 2) ghi(); });
+$('#nut-chinh').addEventListener('click', () => { if (man === 1) diKiemTra(); else if (man === 2) ghi(); else if (man === 3) dongBoLuon(); });
 
 document.addEventListener('click', async e => {
   if (e.target.closest('[data-thu-lai]')) await napDuLieu();

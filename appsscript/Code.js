@@ -27,6 +27,8 @@ var COT_RETAIL = {
   ten: 'Mặt Hàng', donViSi: 'Đơn Vị Sỉ', giaNhapSi: 'Giá Nhập Sỉ', soLuong: 'Số Lượng',
   donViLe: 'Đơn Vị Lẻ', loiNhuan: '% Lợi Nhuận', giaLamTron: 'Giá Làm Tròn'
 };
+var TD_GIA_BAN_LE = 'Giá Bán Lẻ';              // cột công thức Retail mà Giá Làm Tròn làm tròn theo
+var TRUONG_LAM_TRON = 'Bước làm tròn';        // tên trường trong CauHinh — công thức Retail tìm theo tên này
 
 /* Tab CauHinh: Trường | Giá trị | Ghi chú | Dùng cho — riêng tư, KHÔNG xuất bản lên web.
    Tab DoiChieu: khối biệt danh (Cách viết trên toa | Mặt Hàng (Retail)). */
@@ -251,7 +253,7 @@ var CAU_HINH_BAN_DAU = [
    'Dòng nào không đọc chắc chắn thì để "ten": "?" và vẫn giữ các số đọc được.',
    'Gửi kèm ảnh toa cho Claude', 'Đối chiếu toa'],
   ['Cảnh báo giá nhảy (%)', 30, 'Giá đổi từ mức này trở lên → bỏ tích sẵn để xem lại', DUNG_CHUNG],
-  ['Bước làm tròn', 1000, 'Giá bán làm tròn tới bội số này (Đối chiếu toa chỉ dùng để xem trước — công thức Retail mới là chuẩn)', DUNG_CHUNG],
+  ['Bước làm tròn', 1000, 'Giá bán làm tròn tới bội số này — cột Giá Làm Tròn của Retail, Đối chiếu toa và Đồng bộ giá cùng theo dòng này. Ghi số liền, không dấu chấm (vd 1000)', 'Retail, ' + DUNG_CHUNG],
   ['Màu đổi giá bán', '#f4cccc', 'Tô dòng có đổi giá bán. Để trống = không tô', DUNG_CHUNG],
   ['Màu chỉ đổi giá nhập', '#d9ead3', 'Tô dòng chỉ đổi giá nhập / giá sỉ. Để trống = không tô', DUNG_CHUNG],
   ['Xoá màu cũ khi ghi', 'Có', 'Có / Không — để màu chỉ phản ánh lần ghi gần nhất', DUNG_CHUNG],
@@ -292,10 +294,56 @@ function caiDat() {
     Logger.log('Đã tạo tab ' + TAB_DOICHIEU + ': ' + (bd.length - 1) + ' biệt danh');
   }
   chuyenCauHinh(layTabCauHinh(ss), sh, CAU_HINH_BAN_DAU);
+  noiCongThucLamTron(ss);
   var kq = khoiTao();
   Logger.log(kq.ok ? ('Đọc thử: ' + kq.retail.length + ' mặt hàng Retail, ' + kq.bietDanh.length + ' biệt danh') : ('Lỗi: ' + kq.loi));
   (kq.canhBao || []).forEach(function (c) { Logger.log('  ! ' + c); });
 }
+
+/* Một chỗ khai bước làm tròn: cột Giá Làm Tròn của Retail đọc "Bước làm tròn" từ tab CauHinh (tìm theo TÊN trường,
+   nên sắp xếp lại CauHinh không sao). Chỉ thay dòng đang có công thức; tính lại rồi so từng dòng — lệch dù một dòng
+   là trả lại toàn bộ công thức cũ. Dòng đã nối rồi thì bỏ qua, nên chạy lại không sao. */
+function noiCongThucLamTron(ss) {
+  var r = docRetail(ss);
+  if (r.loi) { Logger.log('Chưa nối công thức làm tròn: ' + r.loi); return false; }
+  var cBan = timCot(r.hang[0], TD_GIA_BAN_LE);
+  if (cBan < 0) { Logger.log('Tab ' + TAB_RETAIL + ' thiếu cột "' + TD_GIA_BAN_LE + '" — chưa nối công thức làm tròn'); return false; }
+  var shCH = ss.getSheetByName(TAB_CAU_HINH), tdCH = shCH ? (shCH.getDataRange().getValues()[0] || []) : [];
+  var cTr = timCot(tdCH, TD_TRUONG), cGt = timCot(tdCH, TD_GIA_TRI);
+  if (cTr < 0 || cGt < 0 || layTheoTen(docCauHinhChung(ss), [TRUONG_LAM_TRON]) === undefined) {
+    Logger.log('Tab ' + TAB_CAU_HINH + ' chưa có dòng "' + TRUONG_LAM_TRON + '" — chưa nối công thức làm tròn'); return false;
+  }
+  var cot = r.cot.giaLamTron + 1, soDong = r.hang.length - 1;
+  if (soDong < 1) return false;
+  var o = r.sh.getRange(2, cot, soDong, 1), cu = o.getFormulas(), truoc = o.getValues();
+  var cotGt = TAB_CAU_HINH + '!$' + chuCot(cGt + 1) + ':$' + chuCot(cGt + 1), cotTr = TAB_CAU_HINH + '!$' + chuCot(cTr + 1) + ':$' + chuCot(cTr + 1);
+  var doi = [];
+  cu.forEach(function (row, i) {
+    var f = String(row[0] || '');
+    if (!f || f.indexOf(TAB_CAU_HINH) >= 0) return;   // ô nhập tay, hoặc đã nối rồi
+    var ref = chuCot(cBan + 1) + (i + 2);
+    doi.push({ dong: i + 2, cu: f, moi: '=IF(' + ref + '="","",MROUND(' + ref + ',VALUE(INDEX(' + cotGt + ',MATCH("' + TRUONG_LAM_TRON + '",' + cotTr + ',0)))))' });
+  });
+  if (!doi.length) { Logger.log('Cột Giá Làm Tròn: không còn công thức nào cần nối (đã nối rồi hoặc nhập tay)'); return true; }
+  doi.forEach(function (x) { r.sh.getRange(x.dong, cot).setFormula(x.moi); });
+  SpreadsheetApp.flush();
+  var sau = o.getValues(), lech = [];
+  doi.forEach(function (x) {
+    var a = soHoa(truoc[x.dong - 2][0]), b = soHoa(sau[x.dong - 2][0]);
+    if (a !== b) lech.push({ x: x, a: a, b: b });
+  });
+  if (lech.length) {
+    doi.forEach(function (x) { r.sh.getRange(x.dong, cot).setFormula(x.cu); });
+    SpreadsheetApp.flush();
+    var l = lech[0];
+    Logger.log('Chưa nối công thức làm tròn: ' + lech.length + ' dòng ra số khác (vd dòng ' + l.x.dong + ': ' + l.a + ' → ' + l.b +
+      ') — đã trả lại công thức cũ. Công thức cũ dòng ' + l.x.dong + ': ' + l.x.cu);
+    return false;
+  }
+  Logger.log('Cột Giá Làm Tròn của Retail đã đọc "' + TRUONG_LAM_TRON + '" từ tab ' + TAB_CAU_HINH + ' (' + doi.length + ' dòng, giá không đổi)');
+  return true;
+}
+function chuCot(n) { var s = ''; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
 
 /* ══════════════════ TAB CauHinh (dùng chung cho mọi công cụ — cùng đoạn code ở mọi script) ══════════════════ */
 /* { chuanHoa(tên trường): giá trị } — chưa có tab thì rỗng */
@@ -345,14 +393,15 @@ function layTabCauHinh(ss) {
 
 /* Đưa các trường của công cụ này vào tab CauHinh:
    - CauHinh chưa có trường → thêm dòng, giá trị lấy từ khối cũ (nếu có) hoặc mặc định
-   - CauHinh đã có (do công cụ khác thêm) → giữ nguyên; khối cũ khác giá trị thì ghi log cho biết
+   - CauHinh đã có (do công cụ khác thêm) → giữ nguyên giá trị; khối cũ khác giá trị thì ghi log cho biết.
+     Ghi chú / Dùng cho thì cập nhật theo bản mới (trường dùng chung có cùng chữ ở mọi script)
    Xong thì xoá khối cũ trong tab của công cụ để chỉ còn một chỗ sửa. Dòng khác trong CauHinh (PIN…) không đụng tới. */
 function chuyenCauHinh(shCH, shCu, banDau) {
   var hang = shCH.getDataRange().getValues(), td = hang[0] || [];
   var cTr = timCot(td, TD_TRUONG), cGt = timCot(td, TD_GIA_TRI), cGc = timCot(td, TD_GHI_CHU), cDc = timCot(td, TD_DUNG_CHO);
   if (cTr < 0 || cGt < 0) { Logger.log('Tab ' + TAB_CAU_HINH + ' thiếu tiêu đề Trường / Giá trị — chưa chuyển được cấu hình'); return false; }
-  var coCH = {}, cuoi = 1;
-  for (var i = 1; i < hang.length; i++) { var t = String(hang[i][cTr] || '').trim(); if (t) { coCH[chuanHoa(t)] = hang[i][cGt]; cuoi = i + 1; } }
+  var coCH = {}, dongCH = {}, cuoi = 1;
+  for (var i = 1; i < hang.length; i++) { var t = String(hang[i][cTr] || '').trim(); if (t) { coCH[chuanHoa(t)] = hang[i][cGt]; dongCH[chuanHoa(t)] = i; cuoi = i + 1; } }
   var cu = khoiCu(shCu), soThem = 0;
   banDau.forEach(function (row) {
     var tr = timTruong(row[0]), ds = tr ? tenCuaTruong(tr) : [row[0]];
@@ -360,6 +409,13 @@ function chuyenCauHinh(shCH, shCu, banDau) {
     if (vCH !== undefined) {
       if (vCu !== undefined && String(vCu).trim() !== String(vCH).trim())
         Logger.log('  ! "' + row[0] + '": tab ' + TAB_CAU_HINH + ' đang là "' + vCH + '", khối cũ là "' + vCu + '" — giữ giá trị ở ' + TAB_CAU_HINH);
+      var d = layTheoTen(dongCH, ds);
+      [[cGc, row[2]], [cDc, row[3]]].forEach(function (x) {
+        if (x[0] >= 0 && String(hang[d][x[0]] == null ? '' : hang[d][x[0]]) !== String(x[1])) {
+          shCH.getRange(d + 1, x[0] + 1).setValue(x[1]);
+          Logger.log('  ~ ' + row[0] + ': cập nhật cột ' + td[x[0]]);
+        }
+      });
       return;
     }
     var r = cuoi + 1 + soThem++;
