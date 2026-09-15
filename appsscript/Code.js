@@ -2,7 +2,7 @@
  * Apps Script STANDALONE "bayich2_doichieutoa" — backend của trang Đối Chiếu Toa
  * (bayich2-doichieutoa.vercel.app). Thay cho script gắn với sheet bayich2 (bản bayich2_doichieugia).
  *
- *  ĐỌC : doGet?viec=khoiTao → tab Retail + cấu hình + biệt danh (tab DoiChieu)
+ *  ĐỌC : doPost {hanhDong:'khoiTao', pin} → tab Retail + cấu hình + biệt danh (tab DoiChieu) — cần Mã PIN chung
  *  GHI : doPost {hanhDong:'capNhat', pin, retail:[{ten, giaNhapSi, giaNhapSiCu}]} — cần Mã PIN chung (tab CauHinh)
  *          → chỉ ghi cột "Giá Nhập Sỉ", rồi tô màu dòng:
  *            ĐỎ   = Giá Làm Tròn đổi sau khi Sheet tính lại
@@ -56,7 +56,8 @@ var GIA_TOI_DA = 100000000;
 function doGet(e) {
   try {
     var viec = (e && e.parameter && e.parameter.viec) || 'ping';
-    if (viec === 'khoiTao') return traLoi(khoiTao());
+    /* Đọc giá đã chuyển sang doPost {hanhDong:'khoiTao', pin} — GET không trả giá nữa (trang bản cũ thì báo tải lại) */
+    if (viec === 'khoiTao') return traLoi({ ok: false, maLoi: 'CU', loi: 'Trang đang là bản cũ — tải lại trang (xem giá giờ cần Mã PIN chung)' });
     return traLoi({ ok: true, ten: 'bayich2_doichieutoa', thoiGian: new Date().toISOString() });
   } catch (err) {
     return traLoi({ ok: false, loi: String(err) });
@@ -171,13 +172,14 @@ function docGiaTri(v, kieu) {
 
 /* ══════════════════ GHI ══════════════════ */
 /* Mọi lệnh GHI cần Mã PIN chung (tab CauHinh). Kiểm PIN TRƯỚC khi giữ khoá ghi — sai PIN (chờ 2 giây) không chặn người khác.
-   {hanhDong:'kiemPin', pin} để trang kiểm PIN ngay lúc nhập. Đọc (doGet) không cần PIN. */
+   {hanhDong:'kiemPin', pin} để trang kiểm PIN ngay lúc nhập. {hanhDong:'khoiTao', pin} = ĐỌC — cũng cần PIN, không giữ khoá ghi. */
 function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
     var p = kiemPin(SpreadsheetApp.openById(ID_BAYICH2), d.pin);
     if (!p.ok) return traLoi(p);
     if (d.hanhDong === 'kiemPin') return traLoi({ ok: true });
+    if (d.hanhDong === 'khoiTao') return traLoi(khoiTao());
     if (d.hanhDong !== 'capNhat') return traLoi({ ok: false, loi: 'Hành động không hợp lệ' });
     var khoa = LockService.getScriptLock();
     if (!khoa.tryLock(15000)) return traLoi({ ok: false, loi: 'Đang có một lần ghi khác, thử lại sau ít giây' });
