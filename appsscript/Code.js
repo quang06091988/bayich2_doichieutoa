@@ -321,22 +321,43 @@ function noiCongThucLamTron(ss) {
   cu.forEach(function (row, i) {
     var f = String(row[0] || '');
     if (!f || f.indexOf(TAB_CAU_HINH) >= 0) return;   // ô nhập tay, hoặc đã nối rồi
-    var ref = chuCot(cBan + 1) + (i + 2);
-    doi.push({ dong: i + 2, cu: f, moi: '=IF(' + ref + '="","",MROUND(' + ref + ',VALUE(INDEX(' + cotGt + ',MATCH("' + TRUONG_LAM_TRON + '",' + cotTr + ',0)))))' });
+    doi.push({ dong: i + 2, cu: f, ref: chuCot(cBan + 1) + (i + 2) });
   });
   if (!doi.length) { Logger.log('Cột Giá Làm Tròn: không còn công thức nào cần nối (đã nối rồi hoặc nhập tay)'); return true; }
-  doi.forEach(function (x) { r.sh.getRange(x.dong, cot).setFormula(x.moi); });
+
+  /* Công thức theo ngôn ngữ của Sheet: bản tiếng Việt ngăn đối số bằng ";" (dấu "," là dấu thập phân) — lấy dấu ngăn
+     từ công thức đang có. Thử trước trên 1 dòng; Sheet không nhận thì thử dấu còn lại, rồi mới làm cả cột. */
+  var congThuc = function (ref, d) {
+    return '=IF(' + ref + '=""' + d + '""' + d + 'MROUND(' + ref + d + 'VALUE(INDEX(' + cotGt + d + 'MATCH("' + TRUONG_LAM_TRON + '"' + d + cotTr + d + '0)))))';
+  };
+  var coChamPhay = doi.some(function (x) { return x.cu.indexOf(';') >= 0; });
+  var thu = doi[0], oThu = r.sh.getRange(thu.dong, cot), dau = null, daThu = [];
+  (coChamPhay ? [';', ','] : [',', ';']).some(function (d) {
+    oThu.setFormula(congThuc(thu.ref, d));
+    SpreadsheetApp.flush();
+    var v = oThu.getValue();
+    if (soHoa(v) === soHoa(truoc[thu.dong - 2][0])) { dau = d; return true; }
+    daThu.push('dấu "' + d + '" → ' + JSON.stringify(v));
+    oThu.setFormula(thu.cu);
+    return false;
+  });
+  if (!dau) {
+    SpreadsheetApp.flush();
+    Logger.log('Chưa nối công thức làm tròn: thử ở dòng ' + thu.dong + ' không ra đúng số (' + daThu.join(' · ') + ') — giữ công thức cũ: ' + thu.cu);
+    return false;
+  }
+  doi.forEach(function (x) { r.sh.getRange(x.dong, cot).setFormula(congThuc(x.ref, dau)); });
   SpreadsheetApp.flush();
   var sau = o.getValues(), lech = [];
   doi.forEach(function (x) {
-    var a = soHoa(truoc[x.dong - 2][0]), b = soHoa(sau[x.dong - 2][0]);
-    if (a !== b) lech.push({ x: x, a: a, b: b });
+    var a = soHoa(truoc[x.dong - 2][0]), b = sau[x.dong - 2][0];
+    if (a !== soHoa(b)) lech.push({ x: x, a: a, b: b });
   });
   if (lech.length) {
     doi.forEach(function (x) { r.sh.getRange(x.dong, cot).setFormula(x.cu); });
     SpreadsheetApp.flush();
     var l = lech[0];
-    Logger.log('Chưa nối công thức làm tròn: ' + lech.length + ' dòng ra số khác (vd dòng ' + l.x.dong + ': ' + l.a + ' → ' + l.b +
+    Logger.log('Chưa nối công thức làm tròn: ' + lech.length + ' dòng ra số khác (vd dòng ' + l.x.dong + ': ' + l.a + ' → ' + JSON.stringify(l.b) +
       ') — đã trả lại công thức cũ. Công thức cũ dòng ' + l.x.dong + ': ' + l.x.cu);
     return false;
   }
