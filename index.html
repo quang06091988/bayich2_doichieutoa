@@ -169,6 +169,8 @@ details.gap[open] summary::before{transform:rotate(90deg)}
 .dong-gon{display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #eee6d4;font-size:14px}
 .dong-gon .phai{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--mo);white-space:nowrap}
 .dong-gon select{max-width:48%}
+.dong-gon > span:first-child{min-width:0}
+.dong-gon .lien-tinh{flex:none;font-size:13px;font-weight:600;color:var(--xanh);white-space:nowrap}
 
 /* ── MÀN 3: xong ── */
 .xong{text-align:center;padding:26px 16px 8px}
@@ -348,6 +350,7 @@ details.gap[open] summary::before{transform:rotate(90deg)}
    ══════════════════════════════════════════════════════════ */
 const API = 'https://script.google.com/macros/s/AKfycbyijaex0js9jjT42MDT1Z1JmQ8zdHFjwFiMY6UOjM_F0aSL3KQv46ZzF-n-KpIGUlxa/exec';
 const TEN_TIEM = 'Bảy Ích 2';
+const TINH_GIA = 'https://bayich2-tinhgia.vercel.app/';   // link "Tính giá bán" cho hàng mới chưa có trong Retail
 
 const KHOA_TOA = 'bi2_toa';
 const GIU_TOA_MS = 24 * 3600e3, TOI_DA_DONG = 200;
@@ -751,8 +754,9 @@ function veKiemTra() {
   const giu = KQ.filter(x => x.trangThai === 'giu'), moi = KQ.filter(x => x.trangThai === 'moi');
   let h = '';
   if (moi.length) h += `<details class="gap" open><summary>Hàng mới (${moi.length}) — chưa có trong Retail</summary>
-    ${moi.map(x => `<div class="dong-gon"><span>${thoat(x.d.ten)}</span><span class="phai">${dinh(x.gia)}</span></div>`).join('')}
-    <div class="dong-gon" style="color:var(--mo);font-size:12.5px">Nếu có trong Retail: bấm ← Sửa toa, gõ lại đúng tên (có gợi ý). Nếu là hàng mới: thêm vào tab Retail rồi bấm ↻.</div></details>`;
+    ${moi.map(x => `<div class="dong-gon"><span>${thoat(x.d.ten)}</span><span class="phai">${dinh(x.gia)}</span>
+      <a class="lien-tinh" href="${thoat(TINH_GIA + '?gia=' + x.gia + '&ten=' + encodeURIComponent(x.d.ten))}" target="_blank" rel="noopener">Tính giá bán →</a></div>`).join('')}
+    <div class="dong-gon" style="color:var(--mo);font-size:12.5px">Nếu có trong Retail: bấm ← Sửa toa, gõ lại đúng tên (có gợi ý). Nếu là hàng mới: bấm Tính giá bán để chọn giá, thêm vào tab Retail rồi bấm ↻.</div></details>`;
   if (giu.length) h += `<details class="gap"><summary>Không đổi (${giu.length})</summary>
     ${giu.map(x => `<div class="dong-gon"><span>${thoat(x.r.ten)}</span><span class="phai">${dinh(x.gia)}</span></div>`).join('')}</details>`;
   $('#ds-khac').innerHTML = h;
