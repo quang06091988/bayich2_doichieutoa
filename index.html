@@ -189,7 +189,7 @@ details.gap[open] summary::before{transform:rotate(90deg)}
 .ds-kq .phai i{font-style:normal;color:var(--mo)}
 .hang-nut{display:flex;flex-direction:column;gap:10px;padding:16px}
 .hang-nut a.nut{text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}
-/* đồng bộ luôn sang Menu & Vân Bao Bì (màn 3) */
+/* đồng bộ luôn sang Menu (màn 3) */
 .dong-bo{border-top:1px solid var(--vien);margin-top:16px;padding:16px 0 4px}
 .dong-bo > :not(.ds-kq){margin-left:16px;margin-right:16px}
 .db-td{font-family:'Fraunces',Georgia,serif;font-size:17px;margin:0 0 6px}
@@ -388,10 +388,10 @@ details.gap[open] summary::before{transform:rotate(90deg)}
    Trong code chỉ còn link 2 Apps Script (trang này + Đồng bộ giá) và tên tiệm.
    ══════════════════════════════════════════════════════════ */
 const API = 'https://script.google.com/macros/s/AKfycbyijaex0js9jjT42MDT1Z1JmQ8zdHFjwFiMY6UOjM_F0aSL3KQv46ZzF-n-KpIGUlxa/exec';
-/* Backend của trang Đồng bộ giá — ghi toa xong thì đồng bộ luôn sang Menu & Vân Bao Bì ngay ở màn 3.
+/* Backend của trang Đồng bộ giá — ghi toa xong thì đồng bộ luôn sang Menu ngay ở màn 3.
    Máy chủ bên đó tự tính giá từ Retail; trang này chỉ gửi "ghi những ô nào" kèm giá cũ/mới đã thấy. */
 const API_DONGBO = 'https://script.google.com/macros/s/AKfycbz767Ti7iftH6thPYqdMfr7YqDnT4ntOwZT5vMj9Ox7T6v4FCJwrrWsx8FLtp0JQfVy/exec';
-const TEN_DICH = { Menu: 'Bảy Ích 2 · Menu', SanPham: 'Vân Bao Bì · SanPham' };
+const TEN_DICH = { Menu: 'Bảy Ích 2 · Menu' };   // đã ngừng đồng bộ SanPham (Vân Bao Bì) từ 2026-09-16
 const TEN_TIEM = 'Bảy Ích 2';
 
 const KHOA_TOA = 'bi2_toa';
@@ -926,8 +926,8 @@ async function xacMinhSauLoi(gui, tronTruoc, loiGoc) {
 }
 
 /* ══════════════════ MÀN 3 — xong ══════════════════ */
-/* Liệt kê MỌI dòng đã ghi, chia 2 nhóm; bên dưới tự tải phần đồng bộ sang Menu & Vân Bao Bì. Kể cả khi chỉ đổi giá
-   nhập, Giá Sỉ bên Vân Bao Bì (= Giá Nhập Lẻ) vẫn đổi theo. */
+/* Liệt kê MỌI dòng đã ghi, chia 2 nhóm; bên dưới tự tải phần đồng bộ sang Menu
+   (chỉ đổi giá nhập mà giá làm tròn giữ nguyên thì Menu không có gì cần đổi). */
 function veKetQua(r) {
   const nhom = (doi, tieuDe, lop) => {
     const ds = (r.ketQua || []).filter(k => !!k.doi === doi);
@@ -999,8 +999,8 @@ function htmlDaDongBo(r) {
     if (nhom.length) ds += `<li class="tieu-de">${thoat(TEN_DICH[dich])}</li>` + nhom.map(x => `<li><span class="cham ${x.mau}"></span><span>${thoat(x.ten)}</span>
       <span class="phai">${Object.entries(x.gia).map(([cot, g]) => `${thoat(cot)}: <span class="cu">${dinh(g.cu)}</span> → <b>${dinh(g.moi)}</b>`).join('<br>')}</span></li>`).join('');
   }
-  return `<h3 class="db-td">✓ Đã đồng bộ ${(r.daGhi || []).length} món sang Menu & Vân Bao Bì</h3>
-    <p class="db-cho">${r.soDo} đổi giá bán · ${r.soXanh} chỉ đổi giá sỉ — đã tô màu trong Sheet. POS và bảng giá thấy giá mới sau khoảng 5 phút (bản CSV của Google cập nhật chậm).</p>
+  return `<h3 class="db-td">✓ Đã đồng bộ ${(r.daGhi || []).length} món sang Menu</h3>
+    <p class="db-cho">${r.soDo} đổi giá bán${r.soXanh ? ` · ${r.soXanh} chỉ đổi giá sỉ` : ''} — đã tô màu trong Sheet. POS và bảng giá thấy giá mới sau khoảng 5 phút (bản CSV của Google cập nhật chậm).</p>
     ${r.xacMinh ? '<p class="db-cho">Google báo lỗi đường truyền nhưng đã kiểm tra lại: dữ liệu đã vào Sheet.</p>' : ''}
     <ul class="ds-kq">${ds}</ul>
     ${r.boQua?.length ? `<div class="canh" style="margin-top:12px"><b>Bỏ qua ${r.boQua.length} ô</b><ul>${r.boQua.map(x => `<li>${thoat(x.ten)} · ${thoat(x.cot)}: ${thoat(x.lyDo)}</li>`).join('')}</ul></div>` : ''}`;
@@ -1008,7 +1008,7 @@ function htmlDaDongBo(r) {
 function veDongBo() {
   const el = $('#dong-bo'); if (!el) return;
   const link = DL?.cauHinh?.linkDongBo, moTrang = link ? ` <a href="${thoat(link)}" target="_blank" rel="noopener">Mở trang Đồng bộ giá ›</a>` : '';
-  let h = '<h3 class="db-td">Đồng bộ sang Menu & Vân Bao Bì</h3>';
+  let h = '<h3 class="db-td">Đồng bộ sang Menu</h3>';
   if (dbTrangThai === 'dang') h += '<p class="db-cho">Đang tính giá cần đồng bộ…</p>';
   else if (dbTrangThai === 'loi') h += `<div class="canh loi"><b>Chưa tính được giá cần đồng bộ</b>${thoat(dbLoi)}<br><button class="nut" data-thu-db>Thử lại</button>${moTrang}</div>`;
   else if (dbTrangThai === 'xong') h = htmlDaDongBo(kqDB);
@@ -1021,7 +1021,7 @@ function veDongBo() {
       const nhom = DB.mon.filter(m => m.dich === dich && coDoiDB(m));
       if (nhom.length) ds += `<div class="db-nhom">${thoat(TEN_DICH[dich])} · ${nhom.length} món</div>` + nhom.map(htmlMonDB).join('');
     }
-    h += ds || '<div class="canh ok"><b>Menu và Vân Bao Bì đã khớp với Retail</b>Không cần đồng bộ gì.</div>';
+    h += ds || '<div class="canh ok"><b>Menu đã khớp với Retail</b>Không cần đồng bộ gì.</div>';
   }
   el.innerHTML = h;
   capNhatThanh();
