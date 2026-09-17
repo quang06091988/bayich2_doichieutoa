@@ -466,18 +466,21 @@ function xoaKhoiCu(sh, k) {
   sh.getRange(1, k.cTr + 1).setValue('Cấu hình → tab ' + TAB_CAU_HINH).setFontWeight('bold');
 }
 
-/* Mã PIN chung (tab CauHinh) — bắt buộc cho lệnh GHI. Sai / thiếu thì chờ 2 giây như sổ bán hàng (chống dò PIN). */
+/* Mã PIN chung (tab CauHinh) — cần cho mọi lệnh đọc và ghi. Sai / thiếu thì chờ 2 giây như sổ bán hàng (chống dò PIN). */
 var TRUONG_PIN = 'Mã PIN chung';
 function kiemPin(ss, pin) {
   var dung = layTheoTen(docCauHinhChung(ss), [TRUONG_PIN]);
-  if (dung === undefined || String(dung).trim() === '')
+  if (dung === undefined || chuanPin(dung) === '')
     return { ok: false, maLoi: 'THIEU_PIN', loi: 'Chưa có "' + TRUONG_PIN + '" trong tab ' + TAB_CAU_HINH + ' — chưa ghi được' };
-  if (String(pin == null ? '' : pin).trim() !== String(dung).trim()) {
+  if (chuanPin(pin) !== chuanPin(dung)) {
     Utilities.sleep(2000);
     return { ok: false, maLoi: 'PIN', loi: 'Sai mã PIN — xem ô "' + TRUONG_PIN + '" ở tab ' + TAB_CAU_HINH };
   }
   return { ok: true };
 }
+
+/* So PIN giống sổ bán hàng (bayich2_pos/appsscript): bỏ mọi khoảng trắng và số 0 đầu — ô PIN bị Sheet đổi thành số vẫn khớp */
+function chuanPin(s) { return String(s == null ? '' : s).replace(/\s+/g, '').replace(/^0+(?=\d)/, ''); }
 
 /* ══════════════════ phụ trợ ══════════════════ */
 /* Số từ ô Sheet: số giữ nguyên, chữ kiểu "17.000" / "0,5" / "10%" thì bóc ra. Trống → null */

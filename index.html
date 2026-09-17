@@ -835,7 +835,7 @@ function veKiemTra() {
 
   const giu = KQ.filter(x => x.trangThai === 'giu'), moi = KQ.filter(x => x.trangThai === 'moi');
   let h = '';
-  const lk = DL.cauHinh.linkTinhGia;   // "Link Tính Giá" trong tab DoiChieu — để trống thì không có link
+  const lk = DL.cauHinh.linkTinhGia;   // "Link Tính Giá" trong tab CauHinh — để trống thì không có link
   const linkTinh = x => lk ? `<a class="lien-tinh" href="${thoat(lk + (lk.includes('?') ? '&' : '?') + 'gia=' + x.gia + '&ten=' + encodeURIComponent(x.d.ten))}" target="_blank" rel="noopener">Tính giá bán →</a>` : '';
   if (moi.length) h += `<details class="gap" open><summary>Hàng mới (${moi.length}) — chưa có trong Retail</summary>
     ${moi.map(x => `<div class="dong-gon"><span>${thoat(x.d.ten)}</span><span class="phai">${dinh(x.gia)}</span>${linkTinh(x)}</div>`).join('')}

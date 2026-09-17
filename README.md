@@ -2,7 +2,7 @@
 
 Nhập hoặc chụp toa nhập hàng → so với tab **Retail** (sheet bayich2) → ghi **Giá Nhập Sỉ** mới và tô màu dòng:
 đỏ = Giá Làm Tròn đổi (đổi giá bán), xanh = chỉ đổi giá nhập. Ghi xong, màn kết quả tự tính phần
-**đồng bộ sang Menu và Vân Bao Bì** (gọi thẳng backend của [Đồng Bộ Giá](https://bayich2-dongbogia.vercel.app/),
+**đồng bộ sang Menu** (gọi thẳng backend của [Đồng Bộ Giá](https://bayich2-dongbogia.vercel.app/),
 cùng luật tích sẵn và cách xác minh khi Google lỗi) — bấm "Đồng bộ N món" là xong cả luồng.
 
 Bước làm tròn chỉ khai một chỗ: dòng "Bước làm tròn" trong tab `CauHinh`. Cột Giá Làm Tròn của Retail đọc dòng đó
@@ -40,4 +40,4 @@ appsscript/       backend — Apps Script STANDALONE "bayich2_doichieutoa" (khô
 
 Backend là web app quyền "Bất kỳ ai": chỉ ghi được cột Giá Nhập Sỉ, giá phải là số nguyên 1–100.000.000,
 và chỉ khi giá trong Sheet vẫn đúng như lúc đối chiếu. Mọi lệnh ghi (kể cả nút "Đồng bộ N món") cần **Mã PIN chung**
-trong tab CauHinh — nhập một lần trên mỗi máy; đọc không cần PIN.
+trong tab CauHinh — nhập một lần trên mỗi máy; đọc (tải bảng Retail, đối chiếu) cũng cần PIN.
